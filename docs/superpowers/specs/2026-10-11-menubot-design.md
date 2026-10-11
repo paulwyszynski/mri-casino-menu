@@ -145,11 +145,15 @@ Weekly:
 
 ## Parsing rules
 
-- Use `golang.org/x/net/html` to walk the page, collecting the text of
-  block elements in document order. Drop `script`/`style`/nav/footer
-  content by only considering text after the `Speiseplan` heading and
-  before the footer (`Casino Catering` address block). The exact anchor
-  is decided against the fixture during implementation.
+- Use `golang.org/x/net/html` to walk the page in document order. Only two
+  kinds of element matter (verified against the 2026-10-12 page):
+  - headings `<h1>`–`<h6>`: a heading that matches the date pattern starts
+    a new day; any other heading ends the current day;
+  - `<a class="elementor-toggle-title">`: one dish, added to the current
+    day (ignored before the first date heading).
+  Everything else (nav, footer, `og:description`, the `Inhalt umschalten`
+  accordion bodies) is never looked at. Non-breaking spaces count as
+  spaces.
 - **Date heading:** regex, case-insensitive, flexible whitespace/commas:
   `(Montag|Dienstag|Mittwoch|Donnerstag|Freitag)\s*,?\s*(\d{1,2})\s*[,.]?\s*(<German month>)\s*,?\s*(\d{4})`.
   German month names map to `time.Month` (`März` with umlaut, also `Maerz`).
@@ -161,8 +165,9 @@ Weekly:
   only of codes like `a1`, `c`, `g`, `2`, separated by commas/spaces, are
   removed. Parentheses with real words (e.g. `(Hähnchen)`, `(Rind und Schwein)`)
   are kept.
-- Lines such as `Inhalt umschalten` and `Täglich wechselnde Suppen und frische Salate`
-  are ignored (a small skip list).
+- `Täglich wechselnde Suppen und frische Salate` is a non-date heading and
+  therefore ignored; `Inhalt umschalten` is not a dish link. No skip list
+  is needed.
 
 ## Code layout
 
@@ -225,6 +230,10 @@ write state. With `--dry-run` the token and chat ID are not required.
   - `OnCalendar=Fri *-*-* 15..20:00:00 Europe/Berlin`
   - both `Persistent=true`; the time-window checks in the jobs make late
     catch-up runs harmless.
+- Services order themselves `After=network-online.target time-sync.target`,
+  and `install.sh` enables `systemd-time-wait-sync.service`. The Pi has no
+  hardware clock; without this, a catch-up run right after boot could see
+  the last-shutdown time (fake-hwclock) and judge the time windows wrongly.
 - Note: with `Type=oneshot`, `Restart=on-failure` requires systemd ≥ 244.
   Raspberry Pi OS Bookworm ships 252.
 

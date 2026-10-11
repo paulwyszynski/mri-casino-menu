@@ -88,9 +88,12 @@ changed page layout leads to the failure notice, not a misleading
   `OnFailure=menubot-failure@%n.service` runs `menubot notify-failure <unit>`,
   which sends:
   `⚠️ Speiseplan konnte nicht abgerufen werden (menubot-daily). Details: journalctl -u menubot-daily`
-- Accepted trade-off: if the page stays broken all Friday afternoon, the
-  weekly job can post the ⚠️ notice up to 6 times (once per hourly run).
-  No de-duplication for now.
+- **At most one ⚠️ notice per calendar day (Europe/Berlin), across all
+  jobs.** `notify-failure` records the date of the last notice in the
+  state file. If a notice was already sent today, it only logs and exits 0.
+  Without this, a page that stays broken on a Friday afternoon would cause
+  up to 6 weekly notices plus the daily one. One notice per day is enough,
+  since daily and weekly failures share the same cause.
 - `notify-failure` itself does not fetch the page. If Telegram is
   unreachable too, the error is only in the journal.
 
@@ -154,7 +157,7 @@ mri-casino-menu/
 │   ├── fetch/fetch.go            # HTTP GET, 20s timeout, User-Agent
 │   ├── telegram/                 # client.go (sendMessage), client_test.go (httptest)
 │   ├── format/                   # format.go, format_test.go
-│   ├── state/state.go            # read/write last-sent week key
+│   ├── state/state.go            # JSON file: last weekly key sent, last failure-notice date
 │   └── jobs/                     # jobs.go (Daily, Weekly, NotifyFailure), jobs_test.go
 ├── deploy/
 │   ├── menubot-daily.service / .timer
@@ -194,9 +197,11 @@ write state. With `--dry-run` the token and chat ID are not required.
 
 ## systemd units
 
-- Services are `Type=oneshot`, `DynamicUser=yes`, `StateDirectory=menubot`
-  (→ `/var/lib/menubot`), plus basic hardening (`ProtectSystem=strict`,
-  `ProtectHome=yes`, `NoNewPrivileges=yes`).
+- Services are `Type=oneshot`, `User=menubot`, `Group=menubot`,
+  `StateDirectory=menubot` (→ `/var/lib/menubot`), plus basic hardening
+  (`ProtectSystem=strict`, `ProtectHome=yes`, `NoNewPrivileges=yes`).
+  A fixed system user (not `DynamicUser`) is used because all three
+  services share one state file.
 - Timers carry the timezone explicitly, so the Pi's own timezone does not
   matter:
   - `OnCalendar=Mon..Fri *-*-* 10:00:00 Europe/Berlin`
@@ -215,6 +220,8 @@ The Pi needs neither Go nor Docker.
 1. `GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o build/menubot ./cmd/menubot`
 2. `scp` the binary and `deploy/*` to a temp directory on the Pi.
 3. Over `ssh -t` with `sudo`:
+   - create the system user `menubot` if missing
+     (`useradd --system --no-create-home --shell /usr/sbin/nologin menubot`)
    - install the binary to `/usr/local/bin/menubot`
    - install the unit files to `/etc/systemd/system/`
    - create `/etc/menubot/env` from `env.example` with mode `600`
@@ -251,6 +258,8 @@ Day-to-day: `systemctl list-timers 'menubot*'`,
   - weekly: next week present → sent + state written; already sent →
     nothing; current week only → nothing, no error; outside the Friday
     window → nothing; fetch error → error returned.
+  - notify-failure: first failure of the day → sent + date recorded;
+    second failure same day (any unit) → not sent; next day → sent.
 - **Telegram client:** `httptest` server checks the request path, chat ID,
   `parse_mode`, and maps a non-OK API response to an error.
 - `go vet` and `go test ./...` must pass. No live network in tests.

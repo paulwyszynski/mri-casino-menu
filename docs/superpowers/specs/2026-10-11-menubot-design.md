@@ -97,6 +97,23 @@ changed page layout leads to the failure notice, not a misleading
 - `notify-failure` itself does not fetch the page. If Telegram is
   unreachable too, the error is only in the journal.
 
+## State file
+
+A single file, `$STATE_DIR/state.json` (`/var/lib/menubot/state.json` on the Pi):
+
+```json
+{ "weekly_sent": "2026-W43", "failure_notified": "2026-10-16" }
+```
+
+- Each field holds only the latest value and is overwritten in place, so
+  the file never grows and needs no cleanup or rotation.
+- The daily job never writes it. The weekly job writes it once per week
+  after a successful send. `notify-failure` writes it at most once per day,
+  only when a notice is sent.
+- Writes are atomic: write `state.json.tmp`, `fsync`, rename.
+- A missing or corrupt file is treated as empty (logged as a warning). The
+  worst case is one duplicate weekly message or failure notice.
+
 ## Message format
 
 Telegram `parse_mode=HTML`. Dish text is HTML-escaped. Allergen codes such

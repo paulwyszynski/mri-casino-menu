@@ -87,7 +87,7 @@ changed page layout leads to the failure notice, not a misleading
 - When the restarts are used up, the unit enters `failed` and
   `OnFailure=menubot-failure@%n.service` runs `menubot notify-failure <unit>`,
   which sends:
-  `⚠️ Speiseplan konnte nicht abgerufen werden (menubot-daily). Details: journalctl -u menubot-daily`
+  `⚠️ Speiseplan konnte nicht abgerufen werden (menubot-daily.service). Details: <code>journalctl -u menubot-daily.service</code>`
 - **At most one ⚠️ notice per calendar day (Europe/Berlin), across all
   jobs.** `notify-failure` records the date of the last notice in the
   state file. If a notice was already sent today, it only logs and exits 0.
@@ -253,7 +253,9 @@ The Pi needs neither Go nor Docker.
    - create `/etc/menubot/env` from `env.example` with mode `600`
      **only if it does not exist**
    - `systemctl daemon-reload`
-   - `systemctl enable --now menubot-daily.timer menubot-weekly.timer`
+   - `systemctl enable --now menubot-daily.timer menubot-weekly.timer`,
+     but only once `/etc/menubot/env` no longer contains the placeholder
+     values; otherwise print a hint to fill it in and run `deploy.sh` again
 
 ### First-time setup (documented in README)
 
@@ -262,7 +264,8 @@ The Pi needs neither Go nor Docker.
    `curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates"` and read
    `chat.id` (negative for groups).
 3. `./deploy.sh pi`
-4. `ssh pi sudo nano /etc/menubot/env` → fill in the token and chat ID.
+4. `ssh pi sudo nano /etc/menubot/env` → fill in the token and chat ID,
+   then `./deploy.sh pi` again to enable the timers.
 5. Test: `ssh pi /usr/local/bin/menubot daily --dry-run`, then
    `ssh pi sudo systemctl start menubot-daily.service`.
 

@@ -70,3 +70,42 @@ go test + build (linux/arm64) ─scp─▶ /tmp/menubot-deploy/
 | State | `/var/lib/menubot/state.json` |
 
 If fetching or parsing fails, systemd retries 3× (5 min apart) and then posts one ⚠️ notice per day to the chat.
+
+## What is installed where on the Pi
+
+| Path | What | Owner / mode | Written |
+|---|---|---|---|
+| `/usr/local/bin/menubot` | the program (single static binary, ~7 MB) | root, `755` | every deploy |
+| `/etc/systemd/system/menubot-daily.service` | runs `menubot daily` | root, `644` | every deploy |
+| `/etc/systemd/system/menubot-daily.timer` | Mon–Fri 10:00 Europe/Berlin | root, `644` | every deploy |
+| `/etc/systemd/system/menubot-weekly.service` | runs `menubot weekly` | root, `644` | every deploy |
+| `/etc/systemd/system/menubot-weekly.timer` | Fri 15:00–20:00, hourly | root, `644` | every deploy |
+| `/etc/systemd/system/menubot-failure@.service` | posts the ⚠️ notice | root, `644` | every deploy |
+| `/etc/menubot/env` | bot token and chat ID | root, `600` | first deploy only, never overwritten |
+| `/var/lib/menubot/state.json` | last weekly menu sent, last ⚠️ date | user `menubot` | by systemd on first run |
+| user `menubot` | system user the services run as (no login, no home) | – | first deploy |
+
+Also:
+- **Timer symlinks:** `systemctl enable` creates them in `/etc/systemd/system/timers.target.wants/`.
+- **Time sync:** `systemd-time-wait-sync.service` is enabled so that runs after boot wait for a real clock. The Pi has no RTC.
+- **Temporary files:** `/tmp/menubot-deploy/` exists only during a deploy.
+- **Logs:** they go to the systemd journal (`journalctl`), not to a file.
+
+Check everything at once:
+
+```bash
+ssh pi 'ls -l /usr/local/bin/menubot /etc/systemd/system/menubot-* /etc/menubot/ /var/lib/menubot/'
+```
+
+## Uninstall
+
+```bash
+ssh -t pi 'sudo systemctl disable --now menubot-daily.timer menubot-weekly.timer \
+  && sudo rm -f /usr/local/bin/menubot /etc/systemd/system/menubot-* \
+  && sudo rm -rf /etc/menubot /var/lib/menubot \
+  && sudo systemctl daemon-reload \
+  && sudo userdel menubot'
+```
+
+This leaves `systemd-time-wait-sync.service` enabled, which is harmless. To turn it off as well:
+`ssh pi sudo systemctl disable systemd-time-wait-sync.service`.

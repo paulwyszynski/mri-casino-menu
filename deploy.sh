@@ -3,7 +3,7 @@
 # Usage: ./deploy.sh <ssh-host>
 set -euo pipefail
 
-host="${1:?usage: ./deploy.sh <ssh-host>}"
+host="${1:?usage: ./deploy.sh pi@192.168.0.3}"
 cd "$(dirname "$0")"
 
 go vet ./...

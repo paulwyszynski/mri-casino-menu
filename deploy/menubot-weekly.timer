@@ -1,0 +1,9 @@
+[Unit]
+Description=Next week's Casino Catering menu, Fridays hourly 15:00–20:00 Berlin time
+
+[Timer]
+OnCalendar=Fri *-*-* 15..20:00:00 Europe/Berlin
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=Telegram notice that %i failed
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=menubot
+Group=menubot
+EnvironmentFile=/etc/menubot/env
+StateDirectory=menubot
+ExecStart=/usr/local/bin/menubot notify-failure %i
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes

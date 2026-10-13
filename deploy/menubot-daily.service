@@ -1,0 +1,21 @@
+[Unit]
+Description=Post today's Casino Catering menu to Telegram
+Wants=network-online.target time-sync.target
+After=network-online.target time-sync.target
+OnFailure=menubot-failure@%n.service
+StartLimitIntervalSec=30min
+StartLimitBurst=4
+
+[Service]
+Type=oneshot
+User=menubot
+Group=menubot
+EnvironmentFile=/etc/menubot/env
+StateDirectory=menubot
+ExecStart=/usr/local/bin/menubot daily
+Restart=on-failure
+RestartSec=5min
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes

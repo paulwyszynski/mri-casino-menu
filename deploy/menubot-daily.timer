@@ -1,0 +1,9 @@
+[Unit]
+Description=Casino Catering menu, Mon–Fri 10:00 Berlin time
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 10:00:00 Europe/Berlin
+Persistent=true
+
+[Install]
+WantedBy=timers.target

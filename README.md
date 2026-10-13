@@ -40,10 +40,11 @@ go test + build (linux/arm64) ─scp─▶ /tmp/menubot-deploy/
    Use the `"chat":{"id":…}` value (groups are negative, e.g. `-1001234567890`).
 3. **Deploy** — run on your Mac, in this project folder. Needs Go and working
    SSH to the Pi; `pi` is a host alias from `~/.ssh/config`, or use
-   `user@ip` (e.g. `./deploy.sh paul@192.168.1.50`). You'll be asked for
-   your sudo password on the Pi once.
+   `user@ip`. All steps share one SSH connection, so you type your SSH
+   password at most once (none with an SSH key), plus your sudo password on
+   the Pi if your user needs one.
    ```bash
-   ./deploy.sh pi
+   ./deploy.sh pi@192.168.0.3
    ```
 4. **Configure** on the Pi:
    ```bash

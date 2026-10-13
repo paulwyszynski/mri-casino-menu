@@ -88,6 +88,40 @@ go test + build (linux/arm64) ─scp─▶ /tmp/menubot-deploy/
 
 If fetching or parsing fails, systemd retries 3× (5 min apart) and then posts one ⚠️ notice per day to the chat.
 
+## ⚠️ Check after the first deploy: when does the failure notice fire?
+
+The design assumes systemd starts `menubot-failure@…` only **after all retries
+have failed** (the unit with `Restart=on-failure` enters the `failed` state only
+once its start limit is reached). This could not be verified on the Mac. If
+systemd instead fires it after **every** failed attempt:
+
+- a short glitch at 10:00 posts ⚠️ even though the 10:05 retry delivers the menu;
+- because ⚠️ is sent at most once per day, a real failure later that day would
+  then go unreported.
+
+**How to check (takes ~20 min).** Do it on a weekday between 10:05 and 13:30.
+The daily job ignores runs outside its window, and after 10:05 the real menu
+has already been sent.
+
+1. Point the bot at an address that doesn't respond, and follow the log:
+   ```bash
+   ssh -t pi@192.168.0.3 'echo "MENU_URL=http://127.0.0.1:9/" | sudo tee -a /etc/menubot/env'
+   ssh -t pi@192.168.0.3 sudo systemctl start menubot-daily.service
+   ssh pi@192.168.0.3 "journalctl -f -u menubot-daily -u 'menubot-failure@*'"
+   ```
+2. Watch when `menubot-failure@menubot-daily.service` starts:
+   - **Expected:** `menubot-daily` fails 4 times (now, +5, +10, +15 min) and
+     only then `menubot-failure@…` runs once. You get one ⚠️ in the chat.
+   - **Not expected:** `menubot-failure@…` starts right after the first
+     failure. Then the retry/notice design needs to be changed — open an issue.
+3. Clean up: remove the test URL, reset the "⚠️ already sent today" marker so
+   real failures today are reported, and clear the failed state:
+   ```bash
+   ssh -t pi@192.168.0.3 'sudo sed -i "/^MENU_URL=http:\/\/127.0.0.1:9\//d" /etc/menubot/env'
+   ssh -t pi@192.168.0.3 'sudo sed -i "s/\"failure_notified\": \"[0-9-]*\"/\"failure_notified\": \"\"/" /var/lib/menubot/state.json'
+   ssh -t pi@192.168.0.3 sudo systemctl reset-failed menubot-daily.service
+   ```
+
 ## What is installed where on the Pi
 
 | Path | What | Owner / mode | Written |

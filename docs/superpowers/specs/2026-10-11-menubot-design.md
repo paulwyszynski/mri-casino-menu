@@ -44,9 +44,10 @@ unknown.
 
 Triggered `Mon..Fri 10:00 Europe/Berlin`, `Persistent=true`.
 
-1. If now (Europe/Berlin) is not Mon–Fri, or is 14:00 or later, exit 0
-   without sending. Lunch ends 13:30, so a catch-up run after a Pi outage
-   is pointless after that.
+1. If now (Europe/Berlin) is not Mon–Fri, or is before 10:00, or is 14:00
+   or later, exit 0 without sending. Before 10:00 only a catch-up run after
+   boot can fire, and the regular 10:00 run would send a duplicate. Lunch
+   ends 13:30, so a catch-up run is pointless from 14:00 on.
 2. Fetch and parse the page.
 3. If a day matching today's date exists → send it.
 4. If parsing succeeded but today is missing (holiday, page already switched
@@ -75,8 +76,10 @@ Triggered `Fri 15..20:00 Europe/Berlin` (hourly, 6 runs), `Persistent=true`.
 
 ### Definition of "parse succeeded"
 
-At least one date heading found **and** each found day has at least one
-dish. Zero days is a parse error, never "no menu today". That way a
+At least one date heading with at least one dish. Date headings without
+dishes (e.g. a holiday marked only with plain text) are dropped, so that
+day is treated as "no menu". A page without any dish is a parse error,
+never "no menu today". That way a
 changed page layout leads to the failure notice, not a misleading
 "no menu".
 

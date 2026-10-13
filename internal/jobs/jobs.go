@@ -31,9 +31,10 @@ type Deps struct {
 }
 
 // Daily sends today's menu, or a notice if today is not on the page.
-// It does nothing on weekends and from 14:00 on (lunch is over).
+// It does nothing on weekends, before 10:00 (a catch-up run after boot would
+// duplicate the regular 10:00 run) and from 14:00 on (lunch is over).
 func Daily(ctx context.Context, now time.Time, d Deps) error {
-	if wd := now.Weekday(); wd == time.Saturday || wd == time.Sunday || now.Hour() >= 14 {
+	if wd := now.Weekday(); wd == time.Saturday || wd == time.Sunday || now.Hour() < 10 || now.Hour() >= 14 {
 		d.Log.Info("outside daily window, skipping", "now", now.Format(time.DateTime))
 		return nil
 	}

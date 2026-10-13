@@ -99,7 +99,9 @@ func TestDailyNoMenuNotice(t *testing.T) {
 }
 
 func TestDailyOutsideWindowDoesNothing(t *testing.T) {
-	for _, now := range []string{"2026-10-17T10:00", "2026-10-18T10:00", "2026-10-12T14:00", "2026-10-12T23:30"} {
+	// 08:30 = Persistent=true catch-up after boot; the regular 10:00 run
+	// would otherwise send the same day's menu a second time.
+	for _, now := range []string{"2026-10-17T10:00", "2026-10-18T10:00", "2026-10-12T14:00", "2026-10-12T23:30", "2026-10-12T08:30", "2026-10-12T09:59"} {
 		t.Run(now, func(t *testing.T) {
 			f := &fakeFetcher{err: errors.New("must not fetch")}
 			d, s := deps(t, f)

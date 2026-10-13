@@ -14,7 +14,8 @@ import (
 
 // Parse extracts the days from the page. Date headings (<h1>–<h6>) start a
 // day, any other heading ends it, and <a class="elementor-toggle-title">
-// elements are the dishes of the current day.
+// elements are the dishes of the current day. Days without dishes are
+// omitted; ErrNoMenu means the page has no dish at all.
 func Parse(r io.Reader) ([]Day, error) {
 	doc, err := html.Parse(r)
 	if err != nil {
@@ -50,15 +51,18 @@ func Parse(r io.Reader) ([]Day, error) {
 	}
 	walk(doc)
 
-	if len(days) == 0 {
-		return nil, ErrNoMenu
-	}
+	// A date without dishes (e.g. a holiday) is dropped rather than failing
+	// the whole page; only a page without any dish counts as unparseable.
+	withDishes := days[:0]
 	for _, d := range days {
-		if len(d.Dishes) == 0 {
-			return nil, fmt.Errorf("menu: %s has no dishes", d.Date)
+		if len(d.Dishes) > 0 {
+			withDishes = append(withDishes, d)
 		}
 	}
-	return days, nil
+	if len(withDishes) == 0 {
+		return nil, ErrNoMenu
+	}
+	return withDishes, nil
 }
 
 func isHeading(n *html.Node) bool {

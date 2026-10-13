@@ -121,10 +121,25 @@ func TestParseStructure(t *testing.T) {
 			t.Fatalf("err = %v, want ErrNoMenu", err)
 		}
 	})
-	t.Run("day without dishes is an error", func(t *testing.T) {
+	t.Run("headings without any dishes is ErrNoMenu", func(t *testing.T) {
 		_, err := Parse(strings.NewReader(page(heading("Montag, 12, Oktober 2026"))))
-		if err == nil || errors.Is(err, ErrNoMenu) {
-			t.Fatalf("err = %v, want a no-dishes error", err)
+		if !errors.Is(err, ErrNoMenu) {
+			t.Fatalf("err = %v, want ErrNoMenu", err)
+		}
+	})
+	t.Run("holiday without dishes is dropped, other days kept", func(t *testing.T) {
+		got, err := Parse(strings.NewReader(page(
+			heading("Donnerstag, 31, Dezember 2026"),
+			item("•\tRaclette"),
+			heading("Freitag, 1, Januar 2027"),
+			"<p>Feiertag – geschlossen</p>",
+		)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []Day{{Date{2026, time.December, 31}, []Dish{{Name: "Raclette"}}}}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("got %+v, want %+v", got, want)
 		}
 	})
 	t.Run("dishes before first date and after non-date heading are ignored", func(t *testing.T) {

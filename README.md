@@ -48,26 +48,42 @@ go test + build (linux/arm64) ─scp─▶ /tmp/menubot-deploy/
    ```
 4. **Configure** on the Pi:
    ```bash
-   ssh pi sudo nano /etc/menubot/env
+   ssh -t pi@192.168.0.3 sudo nano /etc/menubot/env
    ```
    ```
    TELEGRAM_BOT_TOKEN=123456789:AA...
    TELEGRAM_CHAT_ID=-1001234567890
    ```
-   Then run `./deploy.sh pi` once more — the timers are only enabled when the config has no placeholder values.
-5. **Test**:
+   Then run `./deploy.sh pi@192.168.0.3` once more — the timers are only enabled when the config has no placeholder values.
+5. **Test.** The daily job only sends **Mon–Fri between 10:00 and 13:59**
+   (Berlin time); outside that window it logs `outside daily window, skipping`
+   and sends nothing — this also applies to manual starts. Use `--now` to test
+   at any time; pick a date from the week currently shown on the website.
+
+   a) Preview only — nothing is sent:
    ```bash
-   ssh pi /usr/local/bin/menubot --dry-run daily
-   ssh pi sudo systemctl start menubot-daily.service
+   ssh pi@192.168.0.3 /usr/local/bin/menubot --dry-run --now 2026-10-13T10:00 daily
    ```
+   b) Send a real test message (checks token, chat ID and parsing):
+   ```bash
+   ssh -t pi@192.168.0.3 'sudo sh -c "set -a; . /etc/menubot/env; /usr/local/bin/menubot --now 2026-10-13T10:00 daily"'
+   ```
+   c) Run the real systemd service (same as the 10:00 timer; only sends inside the window):
+   ```bash
+   ssh -t pi@192.168.0.3 sudo systemctl start menubot-daily.service
+   ssh pi@192.168.0.3 journalctl -u menubot-daily -n 20
+   ```
+   A manual start does not change the timers: the next scheduled run stays as
+   shown by `systemctl list-timers 'menubot*'`. Inside the window, a manual
+   start after the 10:00 run sends the menu a second time.
 
 ## Operations
 
 | What | Command |
 |---|---|
-| Next runs | `ssh pi systemctl list-timers 'menubot*'` |
-| Logs | `ssh pi journalctl -u menubot-daily -u menubot-weekly -u 'menubot-failure@*' --since today` |
-| Update | `./deploy.sh pi` (keeps `/etc/menubot/env`) |
+| Next runs | `ssh pi@192.168.0.3 systemctl list-timers 'menubot*'` |
+| Logs | `ssh pi@192.168.0.3 journalctl -u menubot-daily -u menubot-weekly -u 'menubot-failure@*' --since today` |
+| Update | `./deploy.sh pi@192.168.0.3` (keeps `/etc/menubot/env`) |
 | State | `/var/lib/menubot/state.json` |
 
 If fetching or parsing fails, systemd retries 3× (5 min apart) and then posts one ⚠️ notice per day to the chat.
@@ -95,13 +111,13 @@ Also:
 Check everything at once:
 
 ```bash
-ssh pi 'ls -l /usr/local/bin/menubot /etc/systemd/system/menubot-* /etc/menubot/ /var/lib/menubot/'
+ssh pi@192.168.0.3 'ls -l /usr/local/bin/menubot /etc/systemd/system/menubot-* /etc/menubot/ /var/lib/menubot/'
 ```
 
 ## Uninstall
 
 ```bash
-ssh -t pi 'sudo systemctl disable --now menubot-daily.timer menubot-weekly.timer \
+ssh -t pi@192.168.0.3 'sudo systemctl disable --now menubot-daily.timer menubot-weekly.timer \
   && sudo rm -f /usr/local/bin/menubot /etc/systemd/system/menubot-* \
   && sudo rm -rf /etc/menubot /var/lib/menubot \
   && sudo systemctl daemon-reload \
@@ -109,4 +125,4 @@ ssh -t pi 'sudo systemctl disable --now menubot-daily.timer menubot-weekly.timer
 ```
 
 This leaves `systemd-time-wait-sync.service` enabled, which is harmless. To turn it off as well:
-`ssh pi sudo systemctl disable systemd-time-wait-sync.service`.
+`ssh -t pi@192.168.0.3 sudo systemctl disable systemd-time-wait-sync.service`.

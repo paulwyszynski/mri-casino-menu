@@ -1,2 +1,57 @@
 # mri-casino-menu
-Webcrawler for the menu
+
+Telegram bot that posts the [Casino Catering menu](https://casinocatering.de/speiseplan/) to a chat:
+
+- **Mon–Fri 10:00** — today's menu (or a short notice if today isn't online)
+- **Fri 15:00** — next week's menu; retried hourly until 20:00 if not published yet
+
+Runs as a one-shot Go binary triggered by systemd timers on a Raspberry Pi (arm64).
+Design: [`docs/superpowers/specs/2026-10-11-menubot-design.md`](docs/superpowers/specs/2026-10-11-menubot-design.md)
+
+## Try it locally
+
+```bash
+go test ./...
+go run ./cmd/menubot --dry-run daily
+go run ./cmd/menubot --dry-run --now 2026-10-09T15:00 weekly
+```
+
+`--dry-run` prints instead of sending and needs no token.
+
+## Set up on the Raspberry Pi
+
+1. **Bot token** — from @BotFather (`/mybots` → your bot → *API Token*).
+2. **Chat ID** — send a message in the chat, then:
+   ```bash
+   curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates"
+   ```
+   Use the `"chat":{"id":…}` value (groups are negative, e.g. `-1001234567890`).
+3. **Deploy** from your Mac (needs Go and SSH access to the Pi, e.g. host `pi` in `~/.ssh/config`):
+   ```bash
+   ./deploy.sh pi
+   ```
+4. **Configure** on the Pi:
+   ```bash
+   ssh pi sudo nano /etc/menubot/env
+   ```
+   ```
+   TELEGRAM_BOT_TOKEN=123456789:AA...
+   TELEGRAM_CHAT_ID=-1001234567890
+   ```
+   Then run `./deploy.sh pi` once more — the timers are only enabled when the config has no placeholder values.
+5. **Test**:
+   ```bash
+   ssh pi /usr/local/bin/menubot --dry-run daily
+   ssh pi sudo systemctl start menubot-daily.service
+   ```
+
+## Operations
+
+| What | Command |
+|---|---|
+| Next runs | `ssh pi systemctl list-timers 'menubot*'` |
+| Logs | `ssh pi journalctl -u menubot-daily -u menubot-weekly -u 'menubot-failure@*' --since today` |
+| Update | `./deploy.sh pi` (keeps `/etc/menubot/env`) |
+| State | `/var/lib/menubot/state.json` |
+
+If fetching or parsing fails, systemd retries 3× (5 min apart) and then posts one ⚠️ notice per day to the chat.

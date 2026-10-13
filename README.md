@@ -20,13 +20,28 @@ go run ./cmd/menubot --dry-run --now 2026-10-09T15:00 weekly
 
 ## Set up on the Raspberry Pi
 
+You do **not** copy this project to the Pi. Everything is built on your Mac;
+`deploy.sh` sends only the compiled binary and the systemd files over SSH.
+The Pi needs neither Go nor git.
+
+```
+Mac (this repo)                      Raspberry Pi
+go test + build (linux/arm64) ─scp─▶ /tmp/menubot-deploy/
+                              ─ssh─▶ sudo install.sh → /usr/local/bin/menubot
+                                                       /etc/systemd/system/menubot-*
+                                                       /etc/menubot/env (first time only)
+```
+
 1. **Bot token** — from @BotFather (`/mybots` → your bot → *API Token*).
 2. **Chat ID** — send a message in the chat, then:
    ```bash
    curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates"
    ```
    Use the `"chat":{"id":…}` value (groups are negative, e.g. `-1001234567890`).
-3. **Deploy** from your Mac (needs Go and SSH access to the Pi, e.g. host `pi` in `~/.ssh/config`):
+3. **Deploy** — run on your Mac, in this project folder. Needs Go and working
+   SSH to the Pi; `pi` is a host alias from `~/.ssh/config`, or use
+   `user@ip` (e.g. `./deploy.sh paul@192.168.1.50`). You'll be asked for
+   your sudo password on the Pi once.
    ```bash
    ./deploy.sh pi
    ```
